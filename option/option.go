@@ -1,4 +1,4 @@
-package mo
+package option
 
 import (
 	"bytes"
@@ -7,8 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 )
+
+func empty[T any]() (t T) {
+	return
+}
+
+// Option is a container for an optional value of type T. If value exists, Option is
+// of type Some. If the value is absent, Option is of type None.
+type Option[T any] struct {
+	isPresent bool `json:"-"`
+	value     T //`json:"value,omitempty"`
+}
 
 var optionNoSuchElement = fmt.Errorf("no such element")
 
@@ -29,25 +39,10 @@ func None[T any]() Option[T] {
 	}
 }
 
-// TupleToOption builds a Some Option when second argument is true, or None.
-// Play: https://go.dev/play/p/gkrg2pZwOty
-func TupleToOption[T any](value T, ok bool) Option[T] {
-	if ok {
-		return Some(value)
-	}
-	return None[T]()
-}
-
-// EmptyableToOption builds a Some Option when value is not empty, or None.
-// Play: https://go.dev/play/p/GSpQQ-q-UES
-func EmptyableToOption[T any](value T) Option[T] {
-	// 🤮
-	isZero := reflect.ValueOf(&value).Elem().IsZero()
-	if isZero {
-		return None[T]()
-	}
-
-	return Some(value)
+// Lift takes any value T and lifts it into an Option[T]
+// It uses a pointer to the value, not a copy.
+func Lift[T any](value T) Option[T] {
+	return PointerToOption(Pointer(value))
 }
 
 // PointerToOption builds a Some Option when value is not nil, or None.
@@ -58,13 +53,6 @@ func PointerToOption[T any](value *T) Option[T] {
 	}
 
 	return Some(*value)
-}
-
-// Option is a container for an optional value of type T. If value exists, Option is
-// of type Some. If the value is absent, Option is of type None.
-type Option[T any] struct {
-	isPresent bool
-	value     T
 }
 
 // IsPesent returns false when value is absent.
@@ -89,8 +77,7 @@ func (o Option[T]) Size() int {
 	return 0
 }
 
-// Get returns value and presence.
-// Play: https://go.dev/play/p/0-JBa1usZRT
+// Get returns value if present or panics instead.
 func (o Option[T]) Get() (T, bool) {
 	if !o.isPresent {
 		return empty[T](), false
@@ -109,19 +96,12 @@ func (o Option[T]) MustGet() T {
 	return o.value
 }
 
-// OrElse returns value if present or default value.
-// Play: https://go.dev/play/p/TrGByFWCzXS
-func (o Option[T]) OrElse(fallback T) T {
+// GetOrElse returns value if present or default value.
+func (o Option[T]) GetOrElse(fallback T) T {
 	if !o.isPresent {
 		return fallback
 	}
 
-	return o.value
-}
-
-// OrEmpty returns value if present or empty value.
-// Play: https://go.dev/play/p/SpSUJcE-tQm
-func (o Option[T]) OrEmpty() T {
 	return o.value
 }
 
@@ -135,18 +115,18 @@ func (o Option[T]) ForEach(onValue func(value T)) {
 // Match executes the first function if value is present and second function if absent.
 // It returns a new Option.
 // Play: https://go.dev/play/p/1V6st3LDJsM
-func (o Option[T]) Match(onValue func(value T) (T, bool), onNone func() (T, bool)) Option[T] {
+func (o Option[T]) Match(onValue func(value T) T, onNone func() T) Option[T] {
 	if o.isPresent {
-		return TupleToOption(onValue(o.value))
+		return PointerToOption(Pointer(onValue(o.value)))
 	}
-	return TupleToOption(onNone())
+	return PointerToOption(Pointer(onNone()))
 }
 
 // Map executes the mapper function if value is present or returns None if absent.
 // Play: https://go.dev/play/p/mvfP3pcP_eJ
-func (o Option[T]) Map(mapper func(value T) (T, bool)) Option[T] {
+func (o Option[T]) Map(mapper func(value T) T) Option[T] {
 	if o.isPresent {
-		return TupleToOption(mapper(o.value))
+		return PointerToOption(Pointer(mapper(o.value)))
 	}
 
 	return None[T]()
@@ -154,12 +134,11 @@ func (o Option[T]) Map(mapper func(value T) (T, bool)) Option[T] {
 
 // MapNone executes the mapper function if value is absent or returns Option.
 // Play: https://go.dev/play/p/_KaHWZ6Q17b
-func (o Option[T]) MapNone(mapper func() (T, bool)) Option[T] {
+func (o Option[T]) MapNone(mapper func() T) Option[T] {
 	if o.isPresent {
 		return Some(o.value)
 	}
-
-	return TupleToOption(mapper())
+	return PointerToOption(Pointer(mapper()))
 }
 
 // FlatMap executes the mapper function if value is present or returns None if absent.
@@ -232,7 +211,6 @@ func (o *Option[T]) UnmarshalBinary(data []byte) error {
 
 	if data[0] == 0 {
 		o.isPresent = false
-		o.value = empty[T]()
 		return nil
 	}
 
@@ -261,7 +239,6 @@ func (o *Option[T]) GobDecode(data []byte) error {
 func (o *Option[T]) Scan(src any) error {
 	if src == nil {
 		o.isPresent = false
-		o.value = empty[T]()
 		return nil
 	}
 
@@ -277,8 +254,8 @@ func (o *Option[T]) Scan(src any) error {
 }
 
 // Value implements the driver Valuer interface.
-func (o Option[T]) Value() (driver.Value, error) {
-	if !o.isPresent {
+func (o *Option[T]) Value() (driver.Value, error) {
+	if o.IsAbsent() {
 		return nil, nil
 	}
 
