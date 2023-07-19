@@ -1,6 +1,6 @@
 package either
 
-import "github.com/samber/mo/option"
+import "github.com/tperdue321/mo/option"
 
 type EitherWrapper[L, R, T any] struct {
 	e Either[L, R]

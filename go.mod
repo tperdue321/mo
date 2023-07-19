@@ -1,4 +1,4 @@
-module github.com/samber/mo
+module github.com/tperdue321/mo
 
 go 1.18
 
