@@ -111,7 +111,7 @@ func Test_OptionWrapperFlatMap(t *testing.T) {
 	})
 }
 
-func TestOptionWrapperAp(t *testing.T) {
+func TestOptionWrapperApply(t *testing.T) {
 	is := assert.New(t)
 
 	t.Run("Map to Some", func(t *testing.T) {
@@ -128,7 +128,7 @@ func TestOptionWrapperAp(t *testing.T) {
 
 		baseOptionWrapper := SomeOptionWrapper[int, string](42)
 
-		is.Equal(mappedValue, baseOptionWrapper.Ap(someMapper))
+		is.Equal(mappedValue, baseOptionWrapper.Apply(someMapper))
 	})
 	
 	t.Run("Map to None", func(t *testing.T) {
@@ -137,6 +137,65 @@ func TestOptionWrapperAp(t *testing.T) {
 
 		baseOptionWrapper := SomeOptionWrapper[int, string](42)
 
-		is.Equal(baseOptionWrapper.Ap(noneMapper), None[string]())
+		is.Equal(baseOptionWrapper.Apply(noneMapper), None[string]())
+	})
+}
+
+func TestOptionWrapperMonadicLaws(t *testing.T) {
+	x := 42
+
+	some := SomeOptionWrapper[int, string](x)
+
+	f := func(value int) Option[string] {
+		return Some(strconv.Itoa(value))
+	}
+
+	t.Run("Left Identity", func (t *testing.T) {
+		is := assert.New(t)
+
+		is.Equal(
+			some.FlatMap(f),
+			f(x),
+		)
+
+	})
+
+	t.Run("Right Identity", func (t *testing.T) {
+		y := "foo"
+		is := assert.New(t)
+
+
+		someStrToStr := SomeOptionWrapper[string, string](y)
+		is.Equal(
+			someStrToStr.FlatMap(func (value string) Option[string] {
+				return Some(value)
+			}),
+			Some(y),
+		)
+	})
+
+	t.Run("Associativity", func (t *testing.T) {
+		is := assert.New(t)
+
+		g := func(value string) Option[bool] {
+			switch result := value == "foo"; result {
+			case true:
+				return Some[bool](result)
+			default:
+				return None[bool]()
+			}
+		}
+
+		associateSome := SomeOptionWrapper[int, bool](x)
+		fa := func (value int) Option[bool] {
+			return WrapOption[string, bool](f(value)).FlatMap(g)
+		}
+
+		// proves option.flatMap(f).flatMap(g) == option.flatMap(x => f(x).flatMap(g))
+		is.Equal(
+			WrapOption[string, bool](some.FlatMap(f)).FlatMap(g),
+			associateSome.FlatMap(fa),
+		)
+
 	})
 }

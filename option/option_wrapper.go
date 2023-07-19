@@ -48,21 +48,21 @@ func WrapOption[T, U any](option Option[T]) OptionWrapper[T, U] {
 	}
 }
 
-func (om *OptionWrapper[T, U]) Ap(ff Option[func(value T) U]) Option[U] {
+func (om OptionWrapper[T, U]) Apply(ff Option[func(value T) U]) Option[U] {
 	if ff.IsPresent() {
 		return om.Map(ff.value)
 	}
 	return None[U]()
 }
 
-func (om *OptionWrapper[T, U]) FlatMap(mapper func(value T) Option[U]) Option[U] {
+func (om OptionWrapper[T, U]) FlatMap(mapper func(value T) Option[U]) Option[U] {
 	if value, ok := om.o.Get(); ok {
 		return mapper(value)
 	}
 	return None[U]()
 }
 
-func (om *OptionWrapper[T, U]) Map(mapper func(value T) (U)) Option[U] {
+func (om OptionWrapper[T, U]) Map(mapper func(value T) (U)) Option[U] {
 	if value, ok := om.o.Get(); ok {
 		return PointerToOption(Pointer(mapper(value)))
 	}
