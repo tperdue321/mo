@@ -1,4 +1,4 @@
-package either
+package mo
 
 import (
 	"testing"

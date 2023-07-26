@@ -47,6 +47,12 @@ func TryWrapper[A, B any](f func() (A, error)) ResultWrapper[A, B] {
 	return TupleToResultWrapper[A, B](f())
 }
 
+func WrapResult[A, B any](result Result[A]) ResultWrapper[A, B] {
+	return ResultWrapper[A, B]{
+		r: result,
+	}
+}
+
 
 // IsOk returns true when value is valid.
 // Play: https://go.dev/play/p/sfNvBQyZfgU
@@ -63,13 +69,13 @@ func (rw ResultWrapper[A, B]) IsError() bool {
 // Error returns error when value is invalid or nil.
 // Play: https://go.dev/play/p/CSkHGTyiXJ5
 func (rw ResultWrapper[A, B]) Error() error {
-	return rw.Error()
+	return rw.r.Error()
 }
 
 // Get returns value even if empty
 // Play: https://go.dev/play/p/8KyX3z6TuNo
 func (rw ResultWrapper[A, B]) Get() A {
-	return rw.Get()
+	return rw.r.Get()
 }
 
 // MustGet returns value when Result is valid or panics.
@@ -84,7 +90,7 @@ func (rw ResultWrapper[A, B]) MustGet() A {
 
 // OrElse returns value when Result is valid or default value.
 // Play: https://go.dev/play/p/MN_ULx0soi6
-func (rw ResultWrapper[A, B]) OrElse(fallback A) A {
+func (rw ResultWrapper[A, B]) GetOrElse(fallback A) A {
 	if rw.IsError() {
 		return fallback
 	}
@@ -154,4 +160,12 @@ func (rw ResultWrapper[A, B]) FlatMap(mapper func(value A) Result[B]) Result[B] 
 	}
 
 	return Err[B](rw.Error())
+}
+
+func (rw ResultWrapper[A, B]) Apply(ff Result[func(value A) (B, error)]) Result[B] {
+	if ff.IsOk() {
+		return rw.Map(ff.Get())
+	}
+
+	return Err[B](ff.Error())
 }
