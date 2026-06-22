@@ -139,34 +139,12 @@ func (e Either[L, R]) ForEach(leftCb func(L), rightCb func(R)) {
 	}
 }
 
-// Match executes the given function, depending of value is Left or Right, and returns result.
-func (e Either[L, R]) Match(onLeft func(L) Either[L, R], onRight func(R) Either[L, R]) Either[L, R] {
-	if e.IsLeft() {
-		return onLeft(e.left)
-	} else if e.IsRight() {
-		return onRight(e.right)
-	}
-
-	panic(errEitherShouldBeLeftOrRight)
-}
-
 // MapLeft executes the given function, if Either is of type Left, and returns result.
 func (e Either[L, R]) MapLeft(mapper func(L) Either[L, R]) Either[L, R] {
 	if e.IsLeft() {
 		return mapper(e.left)
 	} else if e.IsRight() {
 		return Right[L, R](e.right)
-	}
-
-	panic(errEitherShouldBeLeftOrRight)
-}
-
-// MapRight executes the given function, if Either is of type Right, and returns result.
-func (e Either[L, R]) MapRight(mapper func(R) Either[L, R]) Either[L, R] {
-	if e.isLeft {
-		return Left[L, R](e.left)
-	} else if e.IsRight() {
-		return mapper(e.right)
 	}
 
 	panic(errEitherShouldBeLeftOrRight)

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -262,7 +263,8 @@ func TestOptionMarshalJSON(t *testing.T) {
 	marshalled, err = json.Marshal(optionInStruct)
 	is.NoError(err)
 
-	major, minor, _ := decomposeGoVersion()
+	major, minor := decomposeGoVersion()
+	fmt.Println("major", major, "minor", minor)
 	if major >= 1 && minor >= 24 {
 		is.Equal(`{"Field":"foo"}`, string(marshalled))
 	} else {
@@ -270,18 +272,22 @@ func TestOptionMarshalJSON(t *testing.T) {
 	}
 }
 
-func decomposeGoVersion() (int, int, int) {
+func decomposeGoVersion() (int, int) {
 	version := runtime.Version() // e.g., "go1.21.0"
+	fmt.Println("version", version)
 
+	NonReleaseVersionRegex := regexp.MustCompile(`\-.*`)
 	version = strings.TrimPrefix(version, "go")
+	fmt.Println("version", version)
+	version = NonReleaseVersionRegex.ReplaceAllString(version, "")
+	fmt.Println("version", version)
 
 	// Split major, minor version, and patch
 	parts := strings.Split(version, ".")
 	major, _ := strconv.Atoi(parts[0])
 	minor, _ := strconv.Atoi(parts[1])
-	patch, _ := strconv.Atoi(parts[2])
 
-	return major, minor, patch
+	return major, minor
 }
 
 func TestOptionUnmarshalJSON(t *testing.T) {
